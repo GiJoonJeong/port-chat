@@ -1,5 +1,6 @@
 package com.im.port.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
@@ -15,44 +16,109 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Configuration
 @EnableWebSecurity // 스프링 시큐리티 필터가 스프링 필터체인에 등록
-@EnableGlobalMethodSecurity(securedEnabled = true, prePostEnabled = true) // secured 어노테이션 활성화
+@EnableGlobalMethodSecurity(securedEnabled = true, jsr250Enabled = true, prePostEnabled = true) // secured 어노테이션 활성화
 // preAuthorize PostAuthroize 어노테이션 활성화
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-    private final PrincipalOauth2UserService principalOauth2UserService;
-    //private final AuthenticationFailureHandler authFailureHandler;
-    // 해당 메서드의 리턴되는 오브젝트를 Ioc로 등록해준다.
+    @Autowired
+    private CustomUserDetailsService customUserDetailsService;
+
+    @Autowired
+    private CustomOAuth2UserService customOAuth2UserService;
+
+    @Autowired
+    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+    @Autowired
+    private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
+    @Autowired
+    private HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
+
     @Bean
-    public BCryptPasswordEncoder encodePwd() {
+    public TokenAuthenticationFilter tokenAuthenticationFilter() {
+        return new TokenAuthenticationFilter();
+    }
+
+    /*
+     * By default, Spring OAuth2 uses
+     * HttpSessionOAuth2AuthorizationRequestRepository to save
+     * the authorization request. But, since our service is stateless, we can't save
+     * it in
+     * the session. We'll save the request in a Base64 encoded cookie instead.
+     */
+    @Bean
+    public HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository() {
+        return new HttpCookieOAuth2AuthorizationRequestRepository();
+    }
+
+    @Override
+    public void configure(AuthenticationManagerBuilder authenticationManagerBuilder) throws Exception {
+        authenticationManagerBuilder
+                .userDetailsService(customUserDetailsService)
+                .passwordEncoder(passwordEncoder());
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean(BeanIds.AUTHENTICATION_MANAGER)
+    @Override
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        System.out.println("============SecurityConfig==================");
-        http.csrf().disable();
-        http.logout()
-            .logoutUrl("/logout")
-            .logoutSuccessUrl("/loginSuccess")
-            .invalidateHttpSession(true).deleteCookies("JSESSIONID");
-        http.authorizeRequests()
-                // .antMatchers("/user/**").authenticated() // 인증만 되면 들어갈 수 있는 주소
-                .anyRequest().permitAll()
-            .and()
+        http
+                .cors()
+                .and()
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .csrf()
+                .disable()
                 .formLogin()
-                .loginPage("/loginForm")
-                .loginProcessingUrl("/login") // login 주소가 호출이 되면 시큐리티가 낚아채서 대신 로그인을 진행해준다.
-                // 로그인 성공시
-                .defaultSuccessUrl("/loginSuccess")
-                //.failureHandler(authFailureHandler)
-            .and()
+                .disable()
+                .httpBasic()
+                .disable()
+                .exceptionHandling()
+                .authenticationEntryPoint(new RestAuthenticationEntryPoint())
+                .and()
+                .authorizeRequests()
+                .antMatchers("/",
+                        "/error",
+                        "/favicon.ico",
+                        "/**/*.png",
+                        "/**/*.gif",
+                        "/**/*.svg",
+                        "/**/*.jpg",
+                        "/**/*.html",
+                        "/**/*.css",
+                        "/**/*.js")
+                .permitAll()
+                .antMatchers("/auth/**", "/oauth2/**")
+                .permitAll()
+                .anyRequest()
+                .authenticated()
+                .and()
                 .oauth2Login()
-                .loginPage("/loginForm")
-                // 구글 로그인이 완료된 뒤의 후처리가 필요함. 코드x (엑세스토큰+사용자프로필정보 O)
-                // 1.코드받기(인증), 2. 엑세스토큰(권한), 3.사용자프로필 정보를 가져와서
-                // 4. 그정보로 회원가입을 자동으로 진행시키기도 함
-                // 4-2 (이메일, 전화번호, 이름, 아이디)
+                .authorizationEndpoint()
+                .baseUri("/oauth2/authorize")
+                .authorizationRequestRepository(cookieAuthorizationRequestRepository())
+                .and()
+                .redirectionEndpoint()
+                .baseUri("/oauth2/callback/*")
+                .and()
                 .userInfoEndpoint()
-                .userService(principalOauth2UserService);
+                .userService(customOAuth2UserService)
+                .and()
+                .successHandler(oAuth2AuthenticationSuccessHandler)
+                .failureHandler(oAuth2AuthenticationFailureHandler);
+
+        // Add our custom Token based authentication filter
+        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
     }
 }

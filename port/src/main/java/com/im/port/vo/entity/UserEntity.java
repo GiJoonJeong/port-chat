@@ -8,6 +8,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
@@ -24,33 +25,36 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "user")
+@Table(name = "user", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "email")
+})
+
 public class UserEntity {
     @Id // primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(nullable = false)
     private String username;
-    
+
     @Column(nullable = false)
     private String email;
-    
+
     private String password;
-    
+
     private String role; // ROLE_USER, ROLE_ADMIN
-    
+
     // 구글 로그인
     @ColumnDefault("'N'")
     private String provider; // "google"
-    
+
     @ColumnDefault("'https://i.esdrop.com/d/f/14rMlVHaTh/lxwXM7NJnb.svg'")
     private String picture; // "sub"
-    
+
     @CreationTimestamp
     private Timestamp reg_date;
 
-    public UserDto toDto(){
+    public UserDto toDto() {
         return UserDto.builder()
                 .id(id)
                 .username(username)
