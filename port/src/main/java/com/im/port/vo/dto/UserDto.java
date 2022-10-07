@@ -2,6 +2,7 @@ package com.im.port.vo.dto;
 
 import java.sql.Timestamp;
 
+import com.im.port.config.security.oauth.provider.ProviderType;
 import com.im.port.vo.entity.UserEntity;
 
 import lombok.AllArgsConstructor;
@@ -14,18 +15,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class UserDto {
-
+    
     private Long id;
     private String username;
     private String email;
-    private String password; // pass
+    private String password;
     private String role; // ROLE_USER, ROLE_ADMIN
     // 구글 로그인
-    private String provider; // "google"
-    private String picture; // "프로필사진"
+    private ProviderType provider; // "google"
+    private String profile_image; // "sub"
     private Timestamp reg_date;
 
-    public UserEntity toEntity() {
+    public UserEntity toEntity(){
         return UserEntity.builder()
                 .id(id)
                 .username(username)
@@ -33,7 +34,7 @@ public class UserDto {
                 .password(password)
                 .role(role)
                 .provider(provider)
-                .picture(picture)
+                .profile_image(profile_image)
                 .reg_date(reg_date)
                 .build();
     }

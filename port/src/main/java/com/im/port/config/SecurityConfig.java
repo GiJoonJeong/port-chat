@@ -3,122 +3,89 @@ package com.im.port.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.im.port.config.oauth.PrincipalOauth2UserService;
+import com.im.port.config.security.handler.OAuth2AuthenticationFailureHandler;
+import com.im.port.config.security.handler.OAuth2SuccessHandler;
+import com.im.port.config.security.oauth.PrincipalOauth2UserService;
+import com.im.port.config.security.oauth.cookieutils.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.im.port.config.security.oauth.jwt.JwtAuthenticationEntryPoint;
+import com.im.port.config.security.oauth.jwt.JwtRequestFilter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RequiredArgsConstructor
 @Configuration
 @EnableWebSecurity // 스프링 시큐리티 필터가 스프링 필터체인에 등록
-@EnableGlobalMethodSecurity(securedEnabled = true, jsr250Enabled = true, prePostEnabled = true) // secured 어노테이션 활성화
+//@EnableGlobalMethodSecurity(securedEnabled = true, prePostEnabled = true) // secured 어노테이션 활성화
 // preAuthorize PostAuthroize 어노테이션 활성화
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-    @Autowired
-    private CustomUserDetailsService customUserDetailsService;
+    private final PrincipalOauth2UserService principalOauth2UserService;
+    
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
-    @Autowired
-    private CustomOAuth2UserService customOAuth2UserService;
-
-    @Autowired
-    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
-
-    @Autowired
-    private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+    private final JwtRequestFilter jwtRequestFilter;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Autowired
     private HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
     @Bean
-    public TokenAuthenticationFilter tokenAuthenticationFilter() {
-        return new TokenAuthenticationFilter();
-    }
-
-    /*
-     * By default, Spring OAuth2 uses
-     * HttpSessionOAuth2AuthorizationRequestRepository to save
-     * the authorization request. But, since our service is stateless, we can't save
-     * it in
-     * the session. We'll save the request in a Base64 encoded cookie instead.
-     */
-    @Bean
     public HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository() {
         return new HttpCookieOAuth2AuthorizationRequestRepository();
     }
 
-    @Override
-    public void configure(AuthenticationManagerBuilder authenticationManagerBuilder) throws Exception {
-        authenticationManagerBuilder
-                .userDetailsService(customUserDetailsService)
-                .passwordEncoder(passwordEncoder());
-    }
-
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    public BCryptPasswordEncoder encodePwd() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean(BeanIds.AUTHENTICATION_MANAGER)
-    @Override
-    public AuthenticationManager authenticationManagerBean() throws Exception {
-        return super.authenticationManagerBean();
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http
-                .cors()
-                .and()
-                .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .and()
+        log.info(" ##### SecurityConfig configure");
+        http.cors()
+            .and()
                 .csrf()
-                .disable()
+                    .disable()
                 .formLogin()
-                .disable()
-                .httpBasic()
-                .disable()
-                .exceptionHandling()
-                .authenticationEntryPoint(new RestAuthenticationEntryPoint())
-                .and()
+                    .disable()
                 .authorizeRequests()
-                .antMatchers("/",
-                        "/error",
-                        "/favicon.ico",
-                        "/**/*.png",
-                        "/**/*.gif",
-                        "/**/*.svg",
-                        "/**/*.jpg",
-                        "/**/*.html",
-                        "/**/*.css",
-                        "/**/*.js")
-                .permitAll()
-                .antMatchers("/auth/**", "/oauth2/**")
-                .permitAll()
+                .antMatchers("/", "/error", "/favicon.ico")
+                    .permitAll()
+                .antMatchers("/PortChat")
+                    .hasRole("MEMBER")
                 .anyRequest()
-                .authenticated()
-                .and()
+                    .permitAll()
+            .and()
+                .exceptionHandling()
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            .and()
+                .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            .and()
                 .oauth2Login()
                 .authorizationEndpoint()
-                .baseUri("/oauth2/authorize")
                 .authorizationRequestRepository(cookieAuthorizationRequestRepository())
-                .and()
+                    .baseUri("/oauth2/authorization")
+            .and()
                 .redirectionEndpoint()
-                .baseUri("/oauth2/callback/*")
-                .and()
+                    .baseUri("/oauth2/callback/*")
+            .and()
                 .userInfoEndpoint()
-                .userService(customOAuth2UserService)
-                .and()
-                .successHandler(oAuth2AuthenticationSuccessHandler)
-                .failureHandler(oAuth2AuthenticationFailureHandler);
-
-        // Add our custom Token based authentication filter
-        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .userService(principalOauth2UserService)
+            .and()
+                .successHandler(oAuth2SuccessHandler)
+                .failureHandler((AuthenticationFailureHandler) oAuth2AuthenticationFailureHandler);
+            http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
     }
 }
