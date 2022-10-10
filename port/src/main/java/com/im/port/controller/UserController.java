@@ -26,8 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-@RestController
 @RequestMapping("/user")
+@RestController
 public class UserController {
 
     private final UserServiceImpl userService;
@@ -49,7 +49,8 @@ public class UserController {
         String encPassword = bCryptPasswordEncoder.encode(userDto.getPassword());
         userDto.setPassword(encPassword);
         userDto.setRole("ROLE_MEMBER");
-        userService.postUser(userDto);
+        Long result = userService.postUser(userDto);
+        if(result < 0 ) return new ResponseEntity<String>("Fail", HttpStatus.BAD_REQUEST);
         return new ResponseEntity<String>("JOIN SUCCESS", HttpStatus.OK);
     }
     //수정 (Put은 들어온 값수정 후 나머지 default)

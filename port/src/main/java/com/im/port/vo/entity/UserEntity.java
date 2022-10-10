@@ -22,6 +22,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+// @DynamicInsert
 @Entity
 @Getter
 @NoArgsConstructor
@@ -31,14 +32,18 @@ import lombok.NoArgsConstructor;
 public class UserEntity {
     @Id // primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "userid")
     private Long id;
     
-    @Column(nullable = false)
-    private String username;
-    
-    @Column(nullable = false)
+    // @Column(nullable = true)
+    // @ColumnDefault("delete")
     private String email;
-    
+
+    // @Column(nullable = false)
+    // @Column(nullable = true)
+    // @ColumnDefault("delete")
+    private String username;
+
     private String password;
     
     private String role; // ROLE_USER, ROLE_ADMIN
@@ -50,10 +55,10 @@ public class UserEntity {
     private ProviderType provider; // "google"
     
     @ColumnDefault("'https://i.esdrop.com/d/f/14rMlVHaTh/lxwXM7NJnb.svg'")
-    private String profile_image; // "sub"
+    private String profileimage; // "sub"
     
     @CreationTimestamp
-    private Timestamp reg_date;
+    private Timestamp regdate;
 
     public UserDto toDto(){
         return UserDto.builder()
@@ -63,8 +68,8 @@ public class UserEntity {
                 .password(password)
                 .role(role)
                 .provider(provider)
-                .profile_image(profile_image)
-                .reg_date(reg_date)
+                .profileimage(profileimage)
+                .regdate(regdate)
                 .build();
     }
 }

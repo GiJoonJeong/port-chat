@@ -23,8 +23,8 @@ public class UserDto {
     private String role; // ROLE_USER, ROLE_ADMIN
     // 구글 로그인
     private ProviderType provider; // "google"
-    private String profile_image; // "sub"
-    private Timestamp reg_date;
+    private String profileimage; // "sub"
+    private Timestamp regdate;
 
     public UserEntity toEntity(){
         return UserEntity.builder()
@@ -34,8 +34,8 @@ public class UserDto {
                 .password(password)
                 .role(role)
                 .provider(provider)
-                .profile_image(profile_image)
-                .reg_date(reg_date)
+                .profileimage(profileimage)
+                .regdate(regdate)
                 .build();
     }
 }

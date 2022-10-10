@@ -91,7 +91,7 @@ public class PrincipalOauth2UserService extends DefaultOAuth2UserService {
 		.email(oAuth2UserInfo.getEmail())
 		.role("ROLE_MEMBER")
 		.provider(providerType)
-		.profile_image(oAuth2UserInfo.getProfileImage())
+		.profileimage(oAuth2UserInfo.getProfileImage())
 		.build();
 		log.info(" ### userEntity" + userEntity.toDto());
 		return userRepository.save(userEntity);
@@ -107,8 +107,8 @@ public class PrincipalOauth2UserService extends DefaultOAuth2UserService {
 		if (oAuth2UserInfo.getEmail() != null && !user.getEmail().equals(oAuth2UserInfo.getEmail())){
 			user.setEmail(oAuth2UserInfo.getEmail());
 		}
-		if (oAuth2UserInfo.getProfileImage() != null && !user.getProfile_image().equals(oAuth2UserInfo.getProfileImage())) {
-			user.setProfile_image(oAuth2UserInfo.getProfileImage());
+		if (oAuth2UserInfo.getProfileImage() != null && !user.getProfileimage().equals(oAuth2UserInfo.getProfileImage())) {
+			user.setProfileimage(oAuth2UserInfo.getProfileImage());
 		}
 		return userRepository.save(user.toEntity());
 	}
